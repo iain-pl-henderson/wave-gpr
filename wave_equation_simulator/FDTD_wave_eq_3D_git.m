@@ -1,4 +1,4 @@
-%% FDTD solver for the wave equation
+%% simple FDTD solver for the wave equation
 
 clear;
 close all;
@@ -12,7 +12,7 @@ id_sim = 'sim';
 %% Physical/room parameters
 L = 1;              % 1 meter
 c = 0.5;            % speed of sound
-duration = 0.75*L/c;    % in seconds   %10*L/c
+duration = 0.75*L/c;    % in seconds
 SR = 200;         % sample rate
 
 eps = 1e-10;
@@ -62,8 +62,7 @@ zlim([0 1])
 
 %% 1.2. Choose boundary conditions
 is_neumann = 1;
-is_no_reflection = 1 - is_neumann;
-is_EM_2 = 0;
+is_EM_1 = 1 - is_neumann;
 
 %% 1.3. Choose initial conditions
 initial_cond.pos.is_excitation_initial = 1;
@@ -367,7 +366,7 @@ if do_7_pt_stencil
         Lpl_matrix_3D = kron_Lpl_3D_Neumann(N,N,N);
         B = (lambda^2).*Lpl_matrix_3D + 2*speye(N^3);
         A = -speye(N^3);
-    elseif is_no_reflection
+    elseif is_EM_1
         e = ones(N,1);
         Id_1D = speye(N);
         L1D = spdiags([e -2.*e e],-1:1,N,N);
@@ -404,72 +403,6 @@ u2 = reshape(u,[N^3,1]) + k*reshape(v,[N^3,1]);
 
 Nsq = N*N;
 Nm = N - 1;
-if is_EM_2
-    % intermediate faces updates
-    mba1 = zeros(N^2,1); % x = 1        back      step n-1
-    mba2 = zeros(N^2,1); % x = 1        back      step n
-    mba3 = zeros(N^2,1); % x = 1        back      step n+1
-    mba  = zeros(N^2,1); % x = 1        back      average mu_tt
-
-    mf1  = zeros(N^2,1); % x = end      front     step n-1
-    mf2  = zeros(N^2,1); % x = end      front     step n
-    mf3  = zeros(N^2,1); % x = end      front     step n+1
-    mf   = zeros(N^2,1); % x = end      front     average mu_tt
-
-    mr1  = zeros(N^2,1); % y = 1        left     step n-1
-    mr2  = zeros(N^2,1); % y = 1        left     step n
-    mr3  = zeros(N^2,1); % y = 1        left     step n+1
-    mr   = zeros(N^2,1); % y = 1        left     average mu_tt
-
-    ml1  = zeros(N^2,1); % y = end      right    step n-1
-    ml2  = zeros(N^2,1); % y = end      right    step n
-    ml3  = zeros(N^2,1); % y = end      right    step n+1
-    ml   = zeros(N^2,1); % y = end      right    average mu_tt
-
-    mbo1 = zeros(N^2,1); % z = 1        bottom   step n-1
-    mbo2 = zeros(N^2,1); % z = 1        bottom   step n
-    mbo3 = zeros(N^2,1); % z = 1        bottom   step n+1
-    mbo  = zeros(N^2,1); % z = 1        bottom   average mu_tt
-
-    mt1  = zeros(N^2,1); % z = end      top      step n-1
-    mt2  = zeros(N^2,1); % z = end      top      step n
-    mt3  = zeros(N^2,1); % z = end      top      step n+1
-    mt   = zeros(N^2,1); % z = end      top      average mu_tt
-
-    xbaslice = zeros(N^2,1);
-    xfslice  = zeros(N^2,1);
-    ylslice  = zeros(N^2,1);
-    yrslice  = zeros(N^2,1);
-    zboslice = zeros(N^2,1);
-    ztslice  = zeros(N^2,1);
-end
-% fill the indexes
-% x faces
-for j = 1:N
-    for kk = 1:N
-        idhere = j + (kk - 1) * N;
-        xbaslice(idhere) = 1 + (j - 1) * N + (kk - 1) * N * N;
-        xfslice(idhere)  = N + (j - 1) * N + (kk - 1) * N * N;
-    end
-end
-
-% y faces
-for i = 1:N
-    for kk = 1:N
-        idhere = i + (kk - 1) * N;
-        yrslice(idhere) = i + (kk - 1) * N * N;
-        ylslice(idhere) = i + (N - 1) * N + (kk - 1) * N * N;
-    end
-end
-
-% z faces
-for i = 1:N
-    for j = 1:N
-        idhere = i + (j - 1) * N;
-        zboslice(idhere) = i + (j - 1) * N;
-        ztslice(idhere)  = i + (j - 1) * N + (N - 1) * N * N;
-    end
-end
 
 lba = zeros(N^2,1);
 lf = zeros(N^2,1);
@@ -492,110 +425,6 @@ for t = 1:nb_iteration
 
     % interior domain and boundary conditions
     u3 = B*u2 + A*u1;
-
-    % now, apply 2nd order Engquist-Majda BC
-    if is_EM_2
-
-        % Only on faces...
-        mba3 = mba1 + 2 * u2(xbaslice);    % x = 1
-        mf3 = mf1 + 2 * u2(xfslice);       % x = end
-        mr3 = mr1 + 2 * u2(yrslice);       % y = 1
-        ml3 = ml1 + 2 * u2(ylslice);       % y = end
-        mbo3 = mbo1 + 2 * u2(zboslice);    % z = 1
-        mt3 = mt1 + 2 * u2(ztslice);       % z = end
-
-        % Averages
-        mba = 0.25 * (mba1 + 2 * mba2 + mba3);
-        mf = 0.25 * (mf1 + 2 * mf2 + mf3);
-        mr = 0.25 * (mr1 + 2 * mr2 + mr3);
-        ml = 0.25 * (ml1 + 2 * ml2 + ml3);
-        mbo = 0.25 * (mbo1 + 2 * mbo2 + mbo3);
-        mt = 0.25 * (mt1 + 2 * mt2 + mt3);
-
-        % x faces
-        for j = 2:N-1 % y
-            for kk = 2:N-1 % z
-                idhere = 1 + (j-1) + (kk-1) * N;
-                idu0 = 1 + N *(j-1) + (kk-1) * N * N;
-                iduEnd = N + N *(j-1) + (kk-1) * N * N;
-                lba(idhere) = mba(idhere - 1) + mba(idhere + 1) - 4 * mba(idhere) + mba(idhere - N) + mba(idhere + N);
-                lf(idhere) = mf(idhere - 1) + mf(idhere + 1) - 4 * mf(idhere) + mf(idhere - N) + mf(idhere + N);
-
-                % back
-                u3(idu0) =  CfaceC * (2*u2(idu0) + CfaceA * u1(idu0) + lambda^2*(-6*u2(idu0) + u2(idu0 + Nsq) + u2(idu0 - Nsq)+ u2(idu0 + N)+ u2(idu0 - N)+ ...
-                    2 * u2(idu0 + 1) + order2*lambda*lba(idhere) ));
-
-                % front
-                u3(iduEnd) =  CfaceC * (2*u2(iduEnd) + CfaceA * u1(iduEnd) + lambda^2*(-6*u2(iduEnd) + u2(iduEnd + Nsq) + u2(iduEnd - Nsq)+ u2(iduEnd + N)+ u2(iduEnd - N)+ ...
-                    2 * u2(iduEnd - 1) + order2*lambda*lf(idhere) ));
-            end
-        end
-
-        % y faces
-        for i = 2:N-1 % x
-            for kk = 2:N-1 % z
-                idhere = 1 + (i-1) + (kk-1) * N;
-                idu0 = i + (kk-1) * N * N;
-                iduEnd = i + N *(N-1) + (kk-1) * N * N;
-                lr(idhere) = mr(idhere - 1) + mr(idhere + 1) - 4 * mr(idhere) + mr(idhere - N) + mr(idhere + N);
-                ll(idhere) = ml(idhere - 1) + ml(idhere + 1) - 4 * ml(idhere) + ml(idhere - N) + ml(idhere + N);
-
-                % right
-                u3(idu0) =  CfaceC * (2*u2(idu0) + CfaceA * u1(idu0) + lambda^2*(-6*u2(idu0) + u2(idu0 + Nsq) + u2(idu0 - Nsq)+ 2*u2(idu0 + N) + ...
-                     u2(idu0 + 1) + u2(idu0 - 1) + order2*lambda*lr(idhere) ));
-                u3(idu0) = 0;
-                % left
-                u3(iduEnd) =  CfaceC * (2*u2(iduEnd) + CfaceA * u1(iduEnd) + lambda^2*(-6*u2(iduEnd) + u2(iduEnd + Nsq) + u2(iduEnd - Nsq) + 2*u2(iduEnd - N)+ ...
-                    u2(iduEnd + 1) + u2(iduEnd - 1) + order2*lambda*ll(idhere) ));
-
-            end
-        end
-
-        % z faces
-        for i = 2:N-1 % x
-            for j = 2:N-1 % y
-                idhere = 1 + (i-1) + (j-1) * N;
-                idu0 = i + (j-1) * N;
-                iduEnd = i + (j-1) * N + (N-1) * N * N;
-                lt(idhere) = mt(idhere - 1) + mt(idhere + 1) - 4 * mt(idhere) + mt(idhere - N) + mt(idhere + N);
-                lbo(idhere) = mbo(idhere - 1) + mbo(idhere + 1) - 4 * mbo(idhere) + mbo(idhere - N) + mbo(idhere + N);
-
-                % bottom
-                u3(idu0) =  CfaceC * (2*u2(idu0) + CfaceA * u1(idu0) + lambda^2*(-6*u2(idu0) + u2(idu0 + 1) + u2(idu0 - 1) + 2*u2(idu0 + Nsq) + u2(idu0 + N) + u2(idu0 - N)...
-                      + order2*lambda*lbo(idhere) ));
-
-                % top
-                u3(iduEnd) =  CfaceC * (2*u2(iduEnd) + ...
-                    CfaceA * u1(iduEnd) + ...
-                    lambda^2*(-6*u2(iduEnd) + ...
-                    u2(iduEnd + 1) + u2(iduEnd - 1) + ...
-                    2*u2(iduEnd - Nsq) + ...
-                    u2(iduEnd + N) + ...
-                    u2(iduEnd - N)...
-                      + order2*lambda*lt(idhere) ));
-
-            end
-        end
-
-        % update variables
-        % x
-        mba1 = mba2;
-        mba2 = mba3;
-        mf1 = mf2;
-        mf2 = mf3;
-        % y
-        mr1 = mr2;
-        mr2 = mr3;
-        ml1 = ml2;
-        ml2 = ml3;
-        % z
-        mbo1 = mbo2;
-        mbo2 = mbo3;
-        mt1 = mt2;
-        mt2 = mt3;
-
-    end
-
 
     if ismember(t,idt)
         tmat = duration*t/nb_iteration;
@@ -747,7 +576,7 @@ if reshape_data % put in sort of time series format
 
     for id_exp=1:n_exp
         writematrix(new_data(:,:,id_exp),sprintf('exp_%s_data_set_noiseless.csv',num2str(id_exp)));
-        noise_lvl = 9e-2;
+        noise_lvl = 9e-2; % choose the suitable noise level
         noise = noise_lvl*randn(n_data,1);
         noisy_obs = new_data(:,:,id_exp);
         noisy_obs(:,end) = noisy_obs(:,end) + noise;
