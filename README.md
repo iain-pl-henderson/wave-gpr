@@ -8,7 +8,7 @@ Specifically, it contains
 For example, for performing Kriging on one solution of the wave equation with non zero initial position and velocity, the R script for launching the numerical experiment is located in wave-gpr/wave_equation_kriging/code/mix/multistart/GP_wave_3D_multistart_mix.R .
 This script performs Kriging on a given numerical solution to the wave equation, using the R package kergp. The corresponding wave equation-tailored covariance function plugged in kergp is coded in kernWaveMaternFun_pos_spd.R, using a RCpp implementation.
 
-In the case of the analysis of the sensibility of our method w.r.t. the sensor locations, the corresponding R script is located in wave_equation_kriging/code/mix/sensibility/GP_wave_3D_sensib_mix.R .
+Likewise, in the case of the analysis of the sensibility of our method w.r.t. the sensor locations, the corresponding R script is located in wave_equation_kriging/code/mix/sensibility/GP_wave_3D_sensib_mix.R . The workflow is then the same as described above.
 
 More details on each experiment are given in the article.
 
